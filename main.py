@@ -15,8 +15,8 @@ from lxml import etree as et
 cache = ()
 #CONFIGURAÇÕES DE USUARIO, EMAIL E SENHA
 host = 'imap.gmail.com'
-email = 'linolinocatolica@gmail.com'
-password = 'yrzj nqna lota tzwp'
+email = 'email@email'
+password = 'senha@senha'
 #FIM DA CONFIGURAÇÃO DE EMAIL E SENHA
 
 '''CHAMA A FUNÇÃO TEXTRACT DA LAMBDA E FALA QUAL É O NOME'''
@@ -210,7 +210,7 @@ def create_document(extract_email, data):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
     url = "https://isc.softexpert.com/apigateway/se/ws/dc_ws.php"
-    authorization = "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MzkyOTk0NTAsImV4cCI6MTg5NzA2NTg1MCwiaWRsb2dpbiI6ImFsaW5vIn0.UY5DZHix28g_pr-V8A-rJYpOCU9MPta6Lc3uKkoGxqw"
+    authorization = "token"
     headers = {
         "Authorization": authorization,
         "SOAPAction": "urn:document#newDocument2",
@@ -272,7 +272,7 @@ def update_information(extract_email, iddocument):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
     url = "https://isc.softexpert.com/apigateway/se/ws/dc_ws.php"
-    authorization = "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MzkyOTk0NTAsImV4cCI6MTg5NzA2NTg1MCwiaWRsb2dpbiI6ImFsaW5vIn0.UY5DZHix28g_pr-V8A-rJYpOCU9MPta6Lc3uKkoGxqw"
+    authorization = "token"
     headers = {
         "Authorization": authorization,
         "SOAPAction": "urn:document#newDocument",
@@ -354,7 +354,7 @@ def update_eletronic_files(extract_email_list, iddocument):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
     url = "https://isc.softexpert.com/apigateway/se/ws/dc_ws.php"
-    authorization = "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MzkyOTk0NTAsImV4cCI6MTg5NzA2NTg1MCwiaWRsb2dpbiI6ImFsaW5vIn0.UY5DZHix28g_pr-V8A-rJYpOCU9MPta6Lc3uKkoGxqw"
+    authorization = "token"
     headers = {
         "Authorization": authorization,
         "SOAPAction": "urn:document#newDocument",
