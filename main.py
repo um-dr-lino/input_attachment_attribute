@@ -1,3 +1,4 @@
+from extract_utils import extract_rg, extract_cpf, clean_text,extract_nome,extract_registration_voter,work_card,extract_birthdate,extract_validity_date, extract_street_name
 import imaplib
 import json
 import os
@@ -11,12 +12,11 @@ import base64
 import unicodedata 
 from lxml import etree as et
 
-
 cache = ()
 #CONFIGURAÇÕES DE USUARIO, EMAIL E SENHA
 host = 'imap.gmail.com'
-email = 'email@email'
-password = 'Senha@Senha'
+email = 'linolinocatolica@gmail.com'
+password = 'yrzj nqna lota tzwp'
 #FIM DA CONFIGURAÇÃO DE EMAIL E SENHA
 
 '''CHAMA A FUNÇÃO TEXTRACT DA LAMBDA E FALA QUAL É O NOME'''
@@ -35,46 +35,93 @@ def connect_email():
     print("[DEBUG] Login bem-sucedido")
     return mail
 
-def generation_dynamic_xml(iddocument, nome, cpf, rg, birth_date, voter_registration, data):
+def generation_dynamic_xml(iddocument, nome, cpf, rg, birth_date, voter_registration, validity_date, street_name_value, data):
     
     parser = et.XMLParser(remove_blank_text=True)
     payload = f"""
-    <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:document">
-    <soapenv:Header/>
-    <soapenv:Body>
-        <urn:newDocument>
-                <urn:idcategory>novocolaborador</urn:idcategory>
-                <urn:iddocument>{iddocument}</urn:iddocument>
-                <urn:title>{nome}</urn:title>
-                <urn:dsresume>Importado via integracao</urn:dsresume>
-                <urn:attributes>cpfnovo={cpf};RG={rg};aniver={birth_date};tituloeleitor={voter_registration}</urn:attributes>
-            <urn:file>
-            </urn:file>
-        </urn:newDocument>
-    </soapenv:Body>
-    </soapenv:Envelope>"""  
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:document">
+            <soapenv:Header/>
+            <soapenv:Body>
+            <urn:newDocument2>
+                <urn:CategoryID>novocolaborador</urn:CategoryID>
+                <urn:DocumentID>{iddocument}</urn:DocumentID>
+                <urn:Title>{nome}</urn:Title>
+                <urn:Summary>Importado via integracao</urn:Summary>
+                <urn:Attributes>
+                    <urn:item>
+                    <urn:ID>cpfnovo</urn:ID>
+                    <urn:Values>
+                        <urn:item>
+                            <urn:Value>{cpf}</urn:Value>
+                        </urn:item>
+                    </urn:Values>
+                    </urn:item>
+                    <urn:item>
+                    <urn:ID>novorg</urn:ID>
+                    <urn:Values>
+                        <urn:item>
+                            <urn:Value>{rg}</urn:Value>
+                        </urn:item>
+                        </urn:Values>
+                    </urn:item>
+                    <urn:item>
+                    <urn:ID>aniver</urn:ID>
+                    <urn:Values>
+                        <urn:item>
+                            <urn:Value>{birth_date}</urn:Value>
+                        </urn:item>
+                        </urn:Values>
+                    </urn:item>
+                    <urn:item>
+                    <urn:ID>tituloeleitor</urn:ID>
+                    <urn:Values>
+                        <urn:item>
+                            <urn:Value>{voter_registration}</urn:Value>
+                        </urn:item>
+                        </urn:Values>
+                    </urn:item>
+                    <urn:item>
+                    <urn:ID>validadecnh</urn:ID>
+                    <urn:Values>
+                        <urn:item>
+                            <urn:Value>{validity_date}</urn:Value>
+                        </urn:item>
+                        </urn:Values>
+                    </urn:item>
+                    <urn:item>
+                    <urn:ID>streetname</urn:ID>
+                    <urn:Values>
+                        <urn:item>
+                            <urn:Value>{street_name_value}</urn:Value>
+                        </urn:item>
+                        </urn:Values>
+                    </urn:item>
+                        </urn:Attributes>
+                    <urn:Files>
+                    </urn:Files>
+                    </urn:newDocument2>
+                </soapenv:Body>
+            </soapenv:Envelope>"""
     
     root = et.fromstring(payload, parser)
     ns = {'soapenv': 'http://schemas.xmlsoap.org/soap/envelope/', 'urn': 'urn:document'}
     
-    file_selection = root.find(".//urn:file", namespaces=ns)
+    file_selection = root.find(".//urn:Files", namespaces=ns)
     
     for data_info in data.get('document_file',[]):
         item = et.Element("{urn:document}item")
-        nmfile = et.SubElement(item, "{urn:document}NMFILE")
-        nmfile.text = data_info['NMFILE']
-        binfile = et.SubElement(item, "{urn:document}BINFILE")
-        binfile.text = data_info['BINFILE']
+        Name = et.SubElement(item, "{urn:document}Name")
+        Name.text = data_info['Name']
+        Content = et.SubElement(item, "{urn:document}Content")
+        Content.text = data_info['Content']
         
         file_selection.append(item)
-    # print("et.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8')", 
-    # et.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8')
     return et.tostring(root, pretty_print=True, encoding='utf-8').decode('utf-8')
 
 def process_new_emails():
     # Busca o último e-mail não lido e processa seus anexos.
     collection_attachment = {'document_file': []}
-    extract_emails = []  # Changed to a list to store multiple attachments
+    extract_emails = []  # Lista para armazenar multiplos anexos
     mail = connect_email()
     mail.select("inbox")
 
@@ -90,11 +137,8 @@ def process_new_emails():
     status, email_data = mail.fetch(latest_email_id, "(RFC822)")
 
     raw_email = email_data[0][1]
-    print("[DEBUG] Email obtido, processando dados brutos")
-
     # Se raw_email for uma string, converta para bytes
     if isinstance(raw_email, str):
-        print("[DEBUG] Convertendo email de string para bytes")
         raw_email = raw_email.encode('utf-8')
         msg = email_parser.message_from_bytes(raw_email)
 
@@ -103,30 +147,23 @@ def process_new_emails():
     print("=" * 50)
     print(f"**De:** {msg['From']}")
     print(f"**Assunto:** {msg['Subject']}")
-
     print("[DEBUG] Procurando por anexos no email")
-    
     has_attachments = False
     # Função para verificar se dentro do email tem anexo
     for part in msg.walk():
         if part.get_content_maintype() == "multipart":
             continue
         if part.get("Content-Disposition") is None:
-            continue
-            
+            continue    
         filename = part.get_filename()
         if filename:
             has_attachments = True
-            print(f"[DEBUG] Anexo encontrado: {filename}")
-            
-            # Create a new extract_email dictionary for each attachment
+            print(f"[DEBUG] Anexo encontrado: {filename}")     
             extract_email = {'file_name': filename}
-            
             file_path = os.path.join(download_folder, filename)
             with open(file_path, "wb") as f:
                 payload = part.get_payload(decode=True)
                 f.write(payload)
-
             # Ler os bytes do documento diretamente
             with open(file_path, "rb") as doc_file:
                 document_bytes = doc_file.read()
@@ -134,229 +171,240 @@ def process_new_emails():
                 extract_email['base64_file'] = base64_encoded
                 result = get_full_text(document_bytes)
                 extract_email['extracted_text'], extract_email['text_confidence'] = result
-            
             # Add the processed attachment to our list
             extract_emails.append(extract_email)
-            
             # Also update the collection_attachment
-            data = {'NMFILE': filename, 'BINFILE': base64_encoded}
+            data = {'Name': filename, 'Content': base64_encoded}
             collection_attachment.get('document_file').append(data)
-    
     if not has_attachments:
         print("Nenhum anexo encontrado.")
     print("[DEBUG] Processamento de email concluído!")
-    
     return extract_emails, collection_attachment
 
 def get_full_text(document_bytes: bytes) -> Optional[Tuple[str, dict]]:
     try:
-        '''Envia documento de anexo para o textract'''
-        print(f"[DEBUG] Sending document to Textract")
+        #Envia documento de anexo para o textract
+        print(f"[DEBUG] Enviando documento para o Textract")
         response = textract.detect_document_text(Document={'Bytes': document_bytes})
-        print("[DEBUG] Resposta recebida do Textract")        
-
-        '''Extrai blocos de texto da resposta da linha de cima'''
+        # print("[DEBUG] Resposta recebida do Textract")        
         text_blocks = [item.get('Text', '') for item in response.get('Blocks', []) if item.get('BlockType') == 'LINE']
-        print(f"[DEBUG] Número de blocos de texto extraídos: {len(text_blocks)}")
-        
+        # print(f"[DEBUG] Número de blocos de texto extraídos: {len(text_blocks)}")
+        #Pega a confiabilidade do documento lido
         text_confidence = {
             item.get("Text", ""): item.get("Confidence", 0.0)
             for item in response.get("Blocks", [])
             if item.get("BlockType") in ("LINE", "WORD")
         }
-        print(f"[DEBUG] Número de entradas de confiança: {len(text_confidence)}")
-        print("[DEBUG] Junção de blocos de texto")
-        
-        '''Junta todos os blocos de texto em uma única string'''
+        # print(f"[DEBUG] Número de entradas de confiança: {len(text_confidence)}")
+        #Junta todos os blocos de texto em uma única string'''
         full_text = " ".join(text_blocks)
-        # print("text_full", full_text)
-        
+        print("AQUI JAS FULL_TEXT: ", full_text)
         return full_text, text_confidence
     except Exception as e:
         print(f"[ERROR] Textract error: {str(e)}")
         print(f"[ERROR] Traceback1: {traceback.format_exc()}")
         return None  # Retornando None para indicar erro
 
-#Função que faz o match das informações, procura o RG em três padrões
-def extract_rg(text: str, confidence_score: dict):
-    match = re.search(r'\D(\d{1}\.\d{3}\.\d{3})\D', text)
-    if not match:
-        match = re.search(r'\D(\d{3}\.\d{3}\.\d{3}-\d{1})\D', text)  
-        if not match:
-            match = re.search(r'UF\s*(\d+)', text)
-            if not match:
-                match = re.search(r'GERAL\s*(\d+)', text)
-    if match:
-        result = match.group(1)      
-        print(f"[DEBUG] RG encontrado: {result}")
-        # buscar o confidence de um trecho de texto
-        confidence = confidence_score.get(result, 0.0)
-        print(f"[DEBUG] Confiança para o RG: {confidence}")
-        return result, confidence
-    print("[DEBUG] RG not found.")
-    return None, 0.0  # Valor padrão para quando não encontrado
-
-#Função que faz o match do cpf procurando o padrão 000.000.000-00
-def extract_cpf(text: str, confidence_score: dict):
-    match = re.search(r'\b\d{3}\.\d{3}\.\d{3}-\d{2}\b', text)
-    result = match.group(0) if match else None
-    confidence = confidence_score.get(result, 0.0)
-    print(f"[DEBUG] CPF extraction result: {result}")
-    print(f"[DEBUG] CPF extraction result confidence: {confidence}")
-    return result, confidence
-
-#Função que faz o match do nome social no texto extraído
-def extract_nome(text: str, confidence_score: dict):
-    #Extrai o Nome Social do texto, mesmo que esteja tudo em uma única linha.
-    match = re.search(r'NOME\s+([A-ZÁÀÉÈÍÌÓÒÚÙÇãõâêîôûäëïöü\s]+)\s+FILIAÇÃO', text)
-
-    if not match:
-            print("[DEBUG] 'NOME' não encontrado, tentando com 'HABILITAÇÃO'...")
-            match = re.search(r'HABILITAÇÃO\s+([A-ZÁÀÉÈÍÌÓÒÚÙÇãõâêîôûäëïöü\s]+)\s+\d', text)
-
-    if match:
-            result = match.group(1).strip()
-            print(f"[DEBUG] Nome encontrado: {result}")
-            confidence = confidence_score.get(result, 0.0)  # Busca a confiança
-            print(f"[DEBUG] Confiança para o Nome: {confidence}")
-            return result, confidence
-
-    print("[DEBUG] Nenhum nome encontrado.")
-    return None, 0.0  # Retorno padrão quando não encontrado
-
-def extract_birthdate(text: str, confidence_score: dict):
-    date_pattern = r'\b(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})\b'
-    # Encontra todas as datas no texto
-    matches = re.findall(date_pattern, text)
-    if len(matches) >= 2:
-        result = matches[1]  # Retorna a segunda data encontrada
-        print(f"[DEBUG] Segunda data de nascimento encontrada: {result}")
-    elif matches:
-        result = matches[0]  # Se houver apenas uma data, retorna essa
-        print(f"[DEBUG] Apenas uma data encontrada: {result}")
-    else:
-        print("[DEBUG] Nenhuma data de nascimento encontrada.")
-        return None, 0.0  # Retorno padrão caso não encontre nenhuma data
-    # Obtém a confiança da data extraída (se existir no dicionário)
-    confidence = confidence_score.get(result, 0.0)
-    print(f"[DEBUG] Confiança para a data de nascimento: {confidence}")
-    return result, confidence
-
-#Função que faz o match do número do título de eleitor
-def extract_registration_voter(text: str, confidence_score: dict):
-    """Extrai o número do título de eleitor em diferentes formatos."""
-    
-    # Define patterns at the beginning of the function so they're always available
-    patterns = [
-        r'\b\d{4} \d{4} \d{4}\b',  # 0000 0000 0000
-        r'\b\d{4}\.\d{4}\.\d{4}\b',  # 0000.0000.0000
-        r'\b\d{3}\.\d{4} \d{4}\b',  # 000.0000 0000
-        r'\b\d{3} \d{4}\.\d{4}\b',   # 000 0000.0000
-        r'\b\d{4}\.\d{4} \d{4}\b',  # 0000.0000 0000
-        r'\b\d{4} \d{4}\.\d{4}\b'   # 0000 0000.0000
-    ]
-    
-    print(f"[DEBUG] Procurando 'MUNICÍPIO' no texto...")
-    municipio_match = re.search(r"\bMUNICÍPIO\b", text, re.IGNORECASE)
-    if municipio_match:
-        print(f"[DEBUG] 'MUNICÍPIO' encontrado na posição {municipio_match.start()}")
-    else:
-        print(f"[DEBUG] 'MUNICÍPIO' não encontrado no texto!")
-    
-    match = re.search(r"(.*?)\bMUNICÍPIO\b", text, re.IGNORECASE)
-    
-    if match:
-        texto_antes_municipio = match.group(1)  # Trecho antes de MUNICÍPIO
-        print(f"[DEBUG] Texto antes de MUNICÍPIO: '{texto_antes_municipio}'")
-
-        for i, pattern in enumerate(patterns):
-            print(f"[DEBUG] Tentando padrão {i+1}: '{pattern}'")
-            match = re.search(pattern, texto_antes_municipio)
-            if match:
-                result = match.group(0)
-                confidence = confidence_score.get(result, 0.0)  # Obtém a confiança do dicionário
-                print(f"[DEBUG] Número do título de eleitor encontrado: {result} (Confiança: {confidence})")
-                return result, confidence
-            else:
-                print(f"[DEBUG] Padrão {i+1} não encontrou correspondência")
-
-        # If we get here, none of the patterns matched
-        print(f"[DEBUG] Nenhum dos padrões encontrou um título de eleitor antes de MUNICÍPIO")
-    
-    # Fallback: try searching the entire text if we couldn't find anything before MUNICÍPIO
-    print("[DEBUG] Tentando buscar título de eleitor em todo o texto...")
-    for i, pattern in enumerate(patterns):
-        match = re.search(pattern, text)
-        if match:
-            result = match.group(0)
-            confidence = confidence_score.get(result, 0.0)
-            print(f"[DEBUG] Número do título de eleitor encontrado no texto completo: {result} (Confiança: {confidence})")
-            return result, confidence
-
-    print("[DEBUG] Nenhum número de título de eleitor encontrado.")
-    return None, 0.0
-
-def work_card(text: str, confidence_score: dict):
-    match = re.search(r'\b\d{3}\.\d{5}\.\d{2}-\d\b', text)
-    result = match.group(0) if match else None
-    confidence = confidence_score.get(result, 0.0)   
-    if match:
-            result = match.group(0).strip()
-            print(f"[DEBUG] Nome encontrado: {result}")
-            confidence = confidence_score.get(result, 0.0)  # Busca a confiança
-            print(f"[DEBUG] Confiança para o Nome: {confidence}")
-            return result, confidence
-
 #importa para dentro do documento
 def create_document(extract_email, data):
     urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     http = urllib3.PoolManager()
     url = "https://isc.softexpert.com/apigateway/se/ws/dc_ws.php"
-    authorization = "authorization@autorization"
+    authorization = "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MzkyOTk0NTAsImV4cCI6MTg5NzA2NTg1MCwiaWRsb2dpbiI6ImFsaW5vIn0.UY5DZHix28g_pr-V8A-rJYpOCU9MPta6Lc3uKkoGxqw"
+    headers = {
+        "Authorization": authorization,
+        "SOAPAction": "urn:document#newDocument2",
+        "Content-Type": "text/xml;charset=utf-8"
+    }
+    # Safely extract values with fallback
+    cpf = extract_email.get("cpf_number", (None, 0.0))
+    nome = extract_email.get("nome_social", (None, 0.0))
+    rg = extract_email.get("rg_number", (None, 0.0))
+    base64_rg = extract_email.get("base64_file")
+    file_name = extract_email.get("file_name")
+    birth_date = extract_email.get("birth_date", (None, 0.0))
+    voter_registration = extract_email.get("voter_registration", (None, 0.0))
+    validity_date = extract_email.get("validity_date", (None, 0.0))
+    street_name = extract_email.get("street_name", (None, 0.0))
+    
+    
+    print(f"CPF extraído: {cpf}")
+    print(f"RG extraído: {rg}")
+    print(f"Data de nascimento extraída: {birth_date}")
+    print(f"Título de eleitor extraído: {voter_registration}")
+    print(f"Data de validade extraída: {validity_date}")
+    print(f"Nome da rua: {street_name}")
+    # Safely extract the first element or use None
+    cpf_value = cpf[0] if cpf and len(cpf) > 0 else None
+    nome_value = nome[0] if nome and len(nome) > 0 else None
+    rg_value = rg[0] if rg and len(rg) > 0 else None
+    birth_date_value = birth_date[0] if birth_date and len(birth_date) > 0 else None
+    voter_registration_value = voter_registration[0] if voter_registration and len(voter_registration) > 0 else None   
+    validity_date_value = validity_date[0] if validity_date and len(validity_date) > 0 else None
+    street_name_value = street_name[0] if street_name and len(street_name) > 0 else None
+    # Check required fields
+    if not (cpf_value and nome_value and rg_value):
+        print(f"[ERRO] Dados obrigatórios ausentes! CPF: {cpf_value}, Nome: {nome_value}, RG: {rg_value}")
+        return {"status_code": 400, "message": "Erro: Dados incompletos."}
+    # Clean nome if it exists
+    if nome_value:
+        nome_value = clean_text(nome_value)
+    iddocument = f"{cpf_value} - {nome_value}"
+    payload = generation_dynamic_xml(iddocument, nome_value, cpf_value, rg_value, birth_date_value, voter_registration_value, validity_date_value, street_name_value, data)
+    http = urllib3.PoolManager()
+    req = http.request('POST', url=url, headers=headers, body=payload)
+    print("Resposta: ", req.data.decode('utf-8'))
+    
+    xml_response = req.data.decode('utf-8')
+    root = et.fromstring(xml_response.encode('utf-8'))
+
+    # Definição do namespace correto
+    namespace = {'ns': 'urn:document'}
+
+    # Extração do status
+    status_element = root.xpath('.//ns:Code', namespaces=namespace)
+    status = status_element[0].text if status_element else "UNKNOWN"
+    print("Este é o status que retornou:", status)
+    
+    return status, iddocument
+
+def update_information(extract_email, iddocument):
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager()
+    url = "https://isc.softexpert.com/apigateway/se/ws/dc_ws.php"
+    authorization = "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MzkyOTk0NTAsImV4cCI6MTg5NzA2NTg1MCwiaWRsb2dpbiI6ImFsaW5vIn0.UY5DZHix28g_pr-V8A-rJYpOCU9MPta6Lc3uKkoGxqw"
     headers = {
         "Authorization": authorization,
         "SOAPAction": "urn:document#newDocument",
         "Content-Type": "text/xml;charset=utf-8"
-    }
+    }    
     
-    # Extract values safely
-    cpf = extract_email.get("cpf_number", (None, 0.0))[0]
-    nome = extract_email.get("nome_social", (None, 0.0))[0]
-    if nome:
-        nome = clean_text(nome)
-    rg = extract_email.get("rg_number", (None, 0.0))[0]
-    base64_rg = extract_email.get("base64_file")
-    file_name = extract_email.get("file_name")
-    birth_date = extract_email.get("birth_date", (None, 0.0))[0]
-    voter_registration = extract_email.get("voter_registration", (None, 0.0))[0]
-    
-    # Check required fields
-    if not (cpf and nome and rg):
-        print(f"[ERRO] Dados obrigatórios ausentes! CPF: {cpf}, Nome: {nome}, RG: {rg}")
-        return {"status_code": 400, "message": "Erro: Dados incompletos."}
-    
-    iddocument = f"{cpf} - {nome}"
-    
-    payload = generation_dynamic_xml(iddocument, nome, cpf, rg, birth_date, voter_registration, data)
-    http = urllib3.PoolManager()
-    req = http.request('POST', url=url, headers=headers, body=payload)
-    print("Resposta: ", req.data.decode('utf-8'))
-    return
-    
-def clean_text(texto):
-    """Remove acentos e caracteres especiais, mantendo apenas letras, números e espaços."""
-    if not isinstance(texto, str):  
-        return texto  # Retorna como está se não for string
+    fields = ["cpf_number", "rg_number", "birth_date", "voter_registration", "validity_date", "street_name"]
+    values = {}
 
-    # Remove acentos
-    texto_sem_acentos = ''.join(
-        c for c in unicodedata.normalize('NFD', texto) 
-        if unicodedata.category(c) != 'Mn'
-    )
-    # Remove caracteres especiais (mantém apenas letras, números e espaços)
-    texto_limpo = re.sub(r'[^A-Za-z0-9\s]', '', texto_sem_acentos)
+    for field in fields:
+        data = extract_email.get(field, (None, 0.0))
+        
+        if data is None or data[0] is None:  # Se não houver valor, pula para o próximo
+            continue
+
+        values[field] = data[0]
+
+    # Se precisar acessar os valores depois:
+    cpf = values.get("cpf_number")
+    rg = values.get("rg_number")
+    birth_date = values.get("birth_date")
+    voter_registration = values.get("voter_registration")
+    validity_date = values.get("validity_date")
+    street_name = values.get("street_name")
+    # cpf = extract_email.get("cpf_number", (None, 0.0))[0]
+    # rg = extract_email.get("rg_number", (None, 0.0))[0]
+    # birth_date = extract_email.get("birth_date", (None, 0.0))[0]
+    # voter_registration = extract_email.get("voter_registration", (None, 0.0))
+    # validity_date = extract_email.get("validity_date", (None, 0.0))[0]   
+    # street_name = extract_email.get("street_name", (None, 0.0))[0]   
+       
+    parser = et.XMLParser(remove_blank_text=True)   
+    # Lista de nomes para identificar os campos
+    campos = [
+        'cpfnovo',
+        'novorg', 
+        'aniver',
+        'tituloeleitor',
+        'validadecnh',
+        'streetname'
+    ]
+    # Lista com os dados
+    combined_data = [
+        cpf,
+        rg,
+        birth_date,
+        voter_registration,
+        validity_date,
+        street_name
+    ]
+    # Cria uma lista de dicionários apenas para campos preenchidos
+    campos_preenchidos = [
+        {campo: valor} 
+        for campo, valor in zip(campos, combined_data) if valor is not None and valor != ""
+    ]
+    # Itera sobre os campos preenchidos
+    for campo_dict in campos_preenchidos:
+        # Obtém o nome do campo e seu valor
+        for campo, valor in campo_dict.items():
+            payload = f"""
+            <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:document">
+            <soapenv:Header/>
+            <soapenv:Body>
+                <urn:setAttributeValue>
+                    <urn:iddocument>{iddocument}</urn:iddocument>
+                    <urn:idattribute>{campo}</urn:idattribute>
+                    <urn:vlattribute>{valor}</urn:vlattribute>
+                </urn:setAttributeValue>
+            </soapenv:Body>
+            </soapenv:Envelope>
+            """
+            # Realiza a requisição para cada campo
+            req = http.request('POST', url=url, headers=headers, body=payload)
+            print(f"Resposta para {campo}: {req.data.decode('utf-8')}")
+            
+    return
+
+def update_eletronic_files(extract_email_list, iddocument):
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    http = urllib3.PoolManager()
+    url = "https://isc.softexpert.com/apigateway/se/ws/dc_ws.php"
+    authorization = "eyJhbGciOiJIUzI1NiJ9.eyJpYXQiOjE3MzkyOTk0NTAsImV4cCI6MTg5NzA2NTg1MCwiaWRsb2dpbiI6ImFsaW5vIn0.UY5DZHix28g_pr-V8A-rJYpOCU9MPta6Lc3uKkoGxqw"
+    headers = {
+        "Authorization": authorization,
+        "SOAPAction": "urn:document#newDocument",
+        "Content-Type": "text/xml;charset=utf-8"
+    } 
     
-    return texto_limpo
+    # Verificar se extract_email_list é uma lista de dicionários
+    if not isinstance(extract_email_list, list):
+        # Se não for uma lista, converte para lista
+        extract_email_list = [extract_email_list]
+    
+    for idx, extract_email in enumerate(extract_email_list, 1):
+        # Verifica se o item é um dicionário, se não for, tenta converter
+        if not isinstance(extract_email, dict):
+            try:
+                extract_email = dict(extract_email)
+            except:
+                print(f"Não foi possível processar o anexo {idx}")
+                continue
+        
+        base64_file = extract_email.get('base64_file')
+        file_name = extract_email.get('file_name')
+        
+        # Verifica se os campos necessários estão presentes
+        if not base64_file or not file_name:
+            print(f"Anexo {idx} ignorado: dados incompletos")
+            continue
+    
+        payload = f"""
+        <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:urn="urn:document">
+        <soapenv:Header/>
+        <soapenv:Body>
+            <urn:uploadEletronicFile>
+                <urn:iddocument>{iddocument}</urn:iddocument>
+                <urn:file>
+                    <urn:item>
+                    <urn:NMFILE>{base64_file}</urn:NMFILE>
+                    <urn:BINFILE>{file_name}</urn:BINFILE>
+                    </urn:item>
+                </urn:file>
+            </urn:uploadEletronicFile>
+        </soapenv:Body>
+        </soapenv:Envelope>"""
+        
+        try:
+            req = http.request('POST', url=url, headers=headers, body=payload)
+            print(f"Resposta para anexo {idx} ({file_name}): {req.data.decode('utf-8')}")
+        except Exception as e:
+            print(f"Erro ao fazer upload do anexo {idx} ({file_name}): {str(e)}")
+    
     
 def lambda_handler(event, context):
     global cache
@@ -380,7 +428,9 @@ def lambda_handler(event, context):
             'rg_number': None,
             'nome_social': None,
             'birth_date': None,
+            'validity_date': None,
             'voter_registration': None,
+            'street_name': None,
             'base64_file': None,
             'file_name': None
         }
@@ -397,8 +447,10 @@ def lambda_handler(event, context):
             cpf = extract_cpf(extract_email['extracted_text'], extract_email['text_confidence'])
             rg = extract_rg(extract_email['extracted_text'], extract_email['text_confidence'])
             nome = extract_nome(extract_email['extracted_text'], extract_email['text_confidence'])
-            birth_date = extract_birthdate(extract_email['extracted_text'], extract_email['text_confidence'])
+            birth_date = extract_birthdate(extract_email['extracted_text'], extract_email['text_confidence']) 
+            validity_date = extract_validity_date(extract_email['extracted_text'], extract_email['text_confidence'])
             voter_reg = extract_registration_voter(extract_email['extracted_text'], extract_email['text_confidence'])
+            street_name = extract_street_name(extract_email['extracted_text'], extract_email['text_confidence'])
             
             # Update combined data with non-None values
             if cpf[0] and not combined_data['cpf_number']:
@@ -409,8 +461,12 @@ def lambda_handler(event, context):
                 combined_data['nome_social'] = nome
             if birth_date[0] and not combined_data['birth_date']:
                 combined_data['birth_date'] = birth_date
+            if validity_date[0] and not combined_data['validity_date']:
+                combined_data['validity_date'] = validity_date
             if voter_reg[0] and not combined_data['voter_registration']:
                 combined_data['voter_registration'] = voter_reg
+            if street_name[0] and not combined_data['street_name']:
+                combined_data['street_name'] = street_name
             
             # Save the first attachment info for document creation
             # This assumes the first attachment (RG) is the one we want to upload
@@ -422,8 +478,13 @@ def lambda_handler(event, context):
         cache += (combined_data,)
         
         # Create a single document with the combined data
-        create_document(combined_data, data)
+        status, iddocument = create_document(combined_data, data)
         
+        # Nova validação: Verifica se o nome do arquivo contém o CPF
+        if status == '18':
+            update_information(combined_data, iddocument)
+            update_eletronic_files(combined_data, iddocument)
+                                
         return {
             'statusCode': 200, 
             'body': json.dumps({
