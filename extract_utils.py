@@ -2,7 +2,6 @@ import re
 import unicodedata 
 
 def clean_text(texto):
-   #Remove acentos e caracteres especiais, mantendo apenas letras, números e espaços.
     if not isinstance(texto, str):  
         return texto  # Retorna como está se não for string
 
