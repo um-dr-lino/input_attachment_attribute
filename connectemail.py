@@ -2,7 +2,8 @@ import imaplib
 import email as email_parser
 import os
 import base64
-from ..CCR.main import get_full_text
+from main import get_full_text
+import os
 
 download_folder = "/tmp" 
 os.makedirs(download_folder, exist_ok=True)
@@ -10,12 +11,13 @@ os.makedirs(download_folder, exist_ok=True)
 def connect_email():
     """Conecta ao servidor IMAP e retorna a conexão."""
     print("[DEBUG] Iniciando conexão ao servidor de email")
-    mail = imaplib.IMAP4_SSL(host)
-    print(f"[DEBUG] Tentando login com usuário: {email}")
-    mail.login(email, password)
+    mail = imaplib.IMAP4_SSL(os.getenv('host'))
+    print(f"[DEBUG] Tentando login com usuário: {os.environ.get('email')}")
+    mail.login(os.environ.get('email'), os.environ.get('password'))
     print("[DEBUG] Login bem-sucedido")
     return mail
-def process_new_emails():
+
+def process_new_emails(): 
     # Busca o último e-mail não lido e processa seus anexos.
     collection_attachment = {'document_file': []}
     extract_emails = []  # Lista para armazenar multiplos anexos
